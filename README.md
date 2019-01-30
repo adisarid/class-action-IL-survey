@@ -1,4 +1,4 @@
-# Class actions in Israel
+# Class actions in Israel - attorney and public opinion
 
 Survey results about class actions in Israel. The data was collected by [Sarid Research Institute LTD.](https://www.sarid-ins.com), with collaboration from ADV. Asaf Pink, and the know-it center for legal qualifications [http://knowit.org.il/](http://knowit.org.il/).
 
