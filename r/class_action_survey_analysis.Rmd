@@ -2,29 +2,549 @@
 title: "Class Action Survey - Document export"
 author: "Adi Sarid / Sarid Research Institute / adi@sarid-ins.co.il"
 date: "1/30/2019"
-output: html_document
+output: 
+  html_document: 
+    css: ~/class-action-IL-survey/rmd.css
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+## Data collection
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+The data was collected online:
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+   * General public's survey via online panel (representative of the Hebrew speaking general public in Israel)
+   * Lawyers using contact lists (conference participants and additional subscribers of knowit.org.il)
 
-```{r cars}
-summary(cars)
+## Load files
+
+Files are stored in subdir /data of the repo. We read the xlsx files to avoid messing with any encoding problems. The files are relatively small.
+```{r read files}
+library(tidyverse)
+
+# public opionion dataset
+public <- readxl::read_excel("../data/export-9524846-general_public.xlsx")
+public_conjoint <- readxl::read_excel("../data/export-9524846-general_public-conjoint.xlsx")
+
+glimpse(public)
+glimpse(public_conjoint)
+
+# attorney dataset
+attorney <- readxl::read_excel("../data/export-9524911-attorneys.xlsx")
+
+glimpse(attorney)
+
+
 ```
 
-## Including Plots
+## General public's awareness and knowledge
 
-You can also embed plots, for example:
+We started by asking the respondents if the ever hear the term class action (yes/no), and if they did - what sentence best describes what a class action is (multiple response).
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r awareness and knowledge}
+# auxiliary function for proportions
+prop <- function(data, count_var = n, na.rm = T, sort_res = T){
+  count_var <- enquo(count_var)
+  if (na.rm) {
+    res <- data %>% 
+      count(!! count_var) %>% 
+      filter(!is.na(!! count_var)) %>% 
+      mutate(prop = n/sum(n))
+  } else {
+    res <- data %>% 
+      count(!! count_var) %>% 
+      mutate(prop = n/sum(n))
+  }
+  
+  if (sort_res){
+    res <- res %>% 
+      arrange(desc(prop))
+  }
+  
+  return(res)
+  
+}
+  
+public %>% 
+  prop(q1_hear_term_class_action)
+
+public_knowledge <- public %>%
+  mutate(q2_what_is_modified = ifelse(q1_hear_term_class_action == 0,
+                                      "dont_know",
+                                      q2_what_is_a_class_action)) %>% 
+  prop(q2_what_is_modified) %>% 
+  mutate(class_action = 
+           recode_factor(q2_what_is_modified,
+                         public_suit_individual_loss = "תביעה של ציבור שלכל פרט שבו נגרם נזק קטן",
+                         advance_public_rights = "כלי שמאפשר קידום זכויות לציבור הרחב",
+                         state_neglect = "תביעה במקרים שהמדינה לא מטפלת בעוולות והפרות של חברות",
+                         lawyer_get_rich = "כלי להתעשרות של עורכי דין",
+                         dont_know = "לא יודע/ת",
+                         other_specify = "אחר"
+                         )) %>% 
+  select(class_action, prop, n)
+DT::datatable(public_knowledge)
+
+ggplot_factor <- function(data, 
+                          xvar,
+                          xlabel = "", 
+                          ylabel = "שיעור המשיבים",
+                          gtitle = "",
+                          colfill = "lightblue",
+                          xsize = 14,
+                          wrap_width = 15) {
+  data <- data %>% 
+    mutate(xfactor = fct_inorder(str_wrap(!! enquo(xvar), width = wrap_width) %>% 
+                                   str_replace_all(., fixed("\n"), "\n\u202B")))
+  
+  output_plot <- ggplot(data, aes(x = xfactor, y = prop)) +
+    geom_col(fill = "lightblue", color = "black") +
+    geom_label(aes(label = paste0(round(prop*100), "%"))) + 
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1)) + 
+    xlab(paste0("\u202B",xlabel)) + 
+    ylab(paste0("\u202B",ylabel)) + 
+    ggtitle(paste0("\u202B", gtitle)) + 
+    theme(plot.title = element_text(hjust = 1), 
+          panel.grid = element_line(color = "gray"),
+          axis.text.x = element_text(size = xsize))
+  
+  if ("n" %in% names(data)){
+    output_plot <- output_plot + 
+      labs(caption = paste0("n=", sum(data$n)))
+  }
+  
+  return(output_plot)
+  
+  }
+
+public_knowledge_chart <- ggplot_factor(public_knowledge, xvar = class_action,
+              gtitle = "מהי תובענה ייצוגית בעיני הציבור?\nשאלה נעזרת")
+
+public_knowledge_chart
+
+# ggsave("figures/public_knowledge.png", public_knowledge_chart, width = 25, height = 10, units = "cm")
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## Compensation in the last five years
+
+We asked the general public: "To the best of your knowledge, in the last 5 years, did you receive any compensation as a results of a class action?"
+
+```{r compensation five years}
+compensation_received_chart <- public %>% 
+  prop(q6_receive_benefit) %>% 
+  filter(q6_receive_benefit %in% c(0, 1, -99)) %>% 
+  mutate(q6_receive_recoded = 
+           recode_factor(q6_receive_benefit,
+                         `0` = "לא קיבלתי",
+                         `1` = "קיבלתי",
+                         `-99` = "לא זוכר")) %>% 
+  ggplot_factor(q6_receive_recoded, gtitle = "האם קיבלת פיצוי?")
+
+compensation_received_chart
+
+# ggsave("figures/compensation_received_chart.png", compensation_received_chart, width = 20, height = 10, units = "cm")
+
+compensation_what <- public %>% 
+  prop(q8_receive_how) %>% 
+  filter(q8_receive_how %in% c("cash", "benefit_discount", "cheque", "coupon")) %>% 
+  mutate(q8_recoded = recode_factor(q8_receive_how,
+                                    cash = "מזומן",
+                                    benefit_discount = "הטבה / הנחה ברכישה",
+                                    cheque = "צ'ק",
+                                    coupon = "קופון")) %>% 
+  ggplot_factor(q8_recoded, gtitle = "באיזה אופן התקבל הפיצוי?")
+
+# ggsave("figures/compensation_what.png", compensation_what, width = 25, height = 10, units = "cm")
+
+```
+
+## To what extent do class actions help defend public rights?
+
+This is a question which was presented both to the general public and lawyers. The answers were given on a 1-5 scale (1 = not at all,..., 5 = to a great extent).
+
+```{r class defend public}
+
+defend_public <- public %>% 
+  filter(q5_class_action_defend_public %in% 1:5) %>% 
+  prop(q5_class_action_defend_public) %>% 
+  mutate(pop = "ציבור כללי") %>% 
+  rename(ranking = q5_class_action_defend_public) %>%
+  mutate(ranking = as.numeric(ranking)) %>% 
+  bind_rows(attorney %>% 
+              prop(`q8_defend_public:q_item_`) %>% 
+              mutate(pop = "עורכי דין") %>% 
+              rename(ranking = `q8_defend_public:q_item_`)) %>% 
+  mutate(ranking_factor = 
+           recode_factor(ranking,
+                         `1` = "כלל לא",
+                         `2` = "במידה מועטה",
+                         `3` = "במידה בינונית",
+                         `4` = "במידה רבה",
+                         `5` = "במידה רבה מאוד"))
+
+defend_public %>% 
+  group_by(pop) %>% 
+  summarize(tot_sample_size = sum(n),
+            avg_rank = sum(ranking*prop))
+
+defend_public_chart <- ggplot(defend_public, aes(x = ranking, y = prop, fill = ranking_factor)) +
+  geom_bar(stat = "identity", position = "dodge", color = "black") +
+  geom_label(aes(label = paste0(round(prop*100), "%")),position = position_dodge(width = 1),
+             show.legend = F) + 
+  guides(fill = guide_legend("דירוג")) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) + 
+  xlab(paste0("\u202B","אוכלוסיה")) + 
+  ylab(paste0("\u202B","שיעור המשיבים %")) + 
+  ggtitle(paste0("\u202B", "באיזו מידה תובענות ייצוגיות עוזרות להגן על זכויות הציבור?")) + 
+  theme(plot.title = element_text(hjust = 1), 
+        panel.grid = element_line(color = "gray"),
+        axis.text.x = element_text(size = 13),
+        strip.text = element_text(size = 13)) + 
+  facet_wrap(~ pop) +
+  scale_fill_brewer(type = "div", palette = "RdYlGn") + 
+  labs(caption = "\u202Bגודל מדגם: 181 עורכי דין, 482 משיבים מקרב הציבור הכללי")
+  
+# ggsave("figures/defend_public_chart.png", defend_public_chart, width = 25, height = 10, units = "cm")
+
+```
+
+Now, we split that same analysis only this time differentiate between prosecutors to defense.
+
+```{r defend public split prosecutors defense}
+attorney %>% 
+  select(starts_with("q18_"), starts_with("q8_")) %>% 
+  filter(q18_representation %in% c("defendents", "prosecutors")) %>% 
+  group_by(q18_representation) %>% 
+  summarize(mean = mean(`q8_defend_public:q_item_`))
+
+defend_public_representation_split <- attorney %>% 
+  select(starts_with("q18_"), starts_with("q8_")) %>% 
+  filter(q18_representation %in% c("defendents", "prosecutors")) %>% 
+  group_by(q18_representation) %>% 
+  prop(`q8_defend_public:q_item_`) %>% 
+  mutate(ranking = factor(`q8_defend_public:q_item_`,
+                          levels = 1:5)) %>% 
+  rename(pop = q18_representation) %>% 
+  mutate(ranking_factor = 
+           recode_factor(ranking,
+                         `1` = "כלל לא",
+                         `2` = "במידה מועטה",
+                         `3` = "במידה בינונית",
+                         `4` = "במידה רבה",
+                         `5` = "במידה רבה מאוד")) %>% 
+  ungroup() %>% 
+  mutate(pop = recode_factor(pop,
+                             prosecutors = "מייצג תובעים",
+                             defendents = "מייצג נתבעות"))
+  
+attorney %>% count(q18_representation)
+
+
+defend_law_side_chart <- ggplot(defend_public_representation_split, aes(x = ranking, y = prop, fill = ranking_factor)) +
+  geom_bar(stat = "identity", position = "dodge", color = "black") +
+  geom_label(aes(label = paste0(round(prop*100), "%")),position = position_dodge(width = 1),
+             show.legend = F) + 
+  guides(fill = guide_legend("דירוג")) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) + 
+  xlab(paste0("\u202B","אוכלוסיה")) + 
+  ylab(paste0("\u202B","שיעור המשיבים %")) + 
+  ggtitle(paste0("\u202B", "באיזו מידה תובענות ייצוגיות עוזרות להגן על זכויות הציבור?")) + 
+  theme(plot.title = element_text(hjust = 1), 
+        panel.grid = element_line(color = "gray"),
+        axis.text.x = element_text(size = 13),
+        strip.text = element_text(size = 13)) + 
+  facet_wrap(~ pop) +
+  scale_fill_brewer(type = "div", palette = "RdYlGn") + 
+  labs(caption = "\u202Bגודל מדגם: 53 מייצגים נתבעות, 63 מייצגים תובעים. היתר סירבו להשיב או מייצגים את שני הצדדים.")
+
+# ggsave("figures/defend_law_side_chart.png", defend_law_side_chart, width = 25, height = 10, units = "cm")
+
+aov(data = attorney,
+    formula = `q8_defend_public:q_item_` ~ q18_representation) %>% 
+  summary()
+
+wilcox.test(formula = `q8_defend_public:q_item_` ~ q18_representation,
+            data = attorney %>% 
+              select(starts_with("q18_"), starts_with("q8_")) %>% 
+              filter(q18_representation %in% c("defendents", "prosecutors")))
+
+attorney %>% 
+  select(starts_with("q18_"), starts_with("q8_")) %>%
+  filter(q18_representation %in% c("defendents", "prosecutors")) %>% 
+  group_by(q18_representation) %>% 
+  summarize(mean = mean(`q8_defend_public:q_item_`))
+  
+```
+
+## Compensation - conjoint analysis
+
+```{r conjoint analysis public}
+glm_set <- public_conjoint %>% 
+  mutate(score_selection = score_selection/100) %>% 
+  mutate(compensation_push_pull = factor(compensation_push_pull,
+                                         levels = c("pull", "push"),
+                                         ordered = F),
+         compensation_type = factor(compensation_type,
+                                    levels = 
+                                      c("another_product",
+                                        "refund_next_purchase",
+                                        "coupon",
+                                        "bank_cheque",
+                                        "credit_cart"),
+                                    ordered = F)) %>% 
+  left_join(public %>% 
+              select(`Response ID`, gender, age, income, family_status, edu, employment)) %>% 
+  select(-`Set Number`, -`Card Number`, -`Response ID`) %>% 
+  mutate(compensation_amount_ILS = factor(compensation_amount_ILS, levels = c(25, 50, 75, 100)))
+
+glm(data = glm_set, 
+    formula = score_selection ~ .) %>% summary()
+```
+
+It seems that the demographic variables do not add much to the analysis, and it is easier to work with the compensation variables.
+
+```{r conjoint clean}
+conjoint_glm_model <- glm(data = glm_set %>% 
+      select(score_selection, compensation_push_pull, compensation_amount_ILS, compensation_type),
+    formula = score_selection ~ .,
+    family = binomial())
+summary(conjoint_glm_model)
+
+exp(coef(conjoint_glm_model))
+```
+
+We can also compute the odds ratio by using coefficients.
+
+```{r conjoint logistic model coefficients}
+exp(coef(conjoint_glm_model))
+
+model_effect_plot <- jtools::plot_summs(conjoint_glm_model, scale = TRUE, plot.distributions = TRUE, inner_ci_level = 0.95) + 
+  ggtitle("העדפות בנוגע לאופן קבלת הפיצוי בתביעה ייצוגית") + 
+  scale_x_continuous(breaks = log(c(1, 2.5, 5, 10)),
+                     labels = c(1, 2.5, 5, 10)) + 
+  theme(plot.title = element_text(hjust = 1)) + 
+  xlab("\u202Bפי כמה עולה הסיכוי לבחירה באפשרות זו?")
+
+model_effect_plot
+
+# ggsave("figures/model_effect_plot.png", model_effect_plot, width = 20, height = 10, units = "cm")
+
+```
+
+## Class action submission fees
+
+One of Ayelet Shaked's moves was to establish a class action submission fee of 16k ILS, in order to reduce the number of class actions and reduce the overhead on the judicial system. We asked whether this step is positive or negative.
+
+```{r submission fees}
+public %>% 
+  filter(q9_support_increased_fee %in% 1:5) %>% 
+  prop(q9_support_increased_fee) %>% 
+  arrange(q9_support_increased_fee) %>%
+  mutate(q9_support_increased_fee = 
+           recode_factor(q9_support_increased_fee,
+                         `1` = "מתנגד במידה רבה",
+                         `2` = "מתנגד",
+                         `3` = "לא תומך ולא מתנגד",
+                         `4` = "תומך",
+                         `5` = "תומך במידה רבה")) %>% 
+  ggplot_factor(xvar = q9_support_increased_fee, 
+                gtitle = str_wrap(
+                  "באחרונה יזמה שרת המשפטים תקנה שאושרה בכנסת המגדילה את אגרת ההגשה... מטרת המהלך היתה למנוע תביעות סרק ולצמצם את העומס... באיזו מידה אתה תומך או מתנגד למהלך זה?",
+                  width = 70
+                ) %>% 
+                  str_replace_all(., "\n", "\n\u202B")) -> updated_fee_regulations
+
+# ggsave("figures/updated_fee_regulations.png", updated_fee_regulations, width = 20, height = 10, units = "cm")
+
+```
+
+## Fields for future lawsuits
+
+In what fields did you consider or are currently considering to file for a class action?
+
+```{r future class action fields}
+public %>% 
+  prop(q13_considering_filing) %>% 
+  filter(q13_considering_filing%in% 0:1)
+
+public %>%
+  select(`Response ID`, contains("q14"), -contains("specify")) %>% 
+  gather(lawsuit_field, selection, -`Response ID`) %>% 
+  filter(!is.na(selection)) %>% 
+  filter(selection != 0) %>% 
+  count(lawsuit_field) %>% 
+  mutate(prop = n/45) %>% 
+  mutate(lawsuit_field = str_replace(lawsuit_field, ":q14_filing_field", ""))
+
+```
+
+## Leading offices in class action quality
+
+Who are the leading law offices in class action lawsuit quality? representation quality?
+
+### Lawsuit quality
+
+```{r leading law offices}
+attorney %>% 
+  select(contains("q9"), `Response ID`,
+         -contains("אחר")) %>% 
+  gather(name, votes, -`Response ID`) %>% 
+  mutate(votes = (!is.na(votes))*1) %>% 
+  group_by(`Response ID`) %>% 
+  summarize(total_votes = sum(votes)) %>% 
+  filter(total_votes > 0) %>% 
+  select(-total_votes) %>% 
+  unique() %>% 
+  NROW() -> total_respondents
+
+prosecutor_rank <- attorney %>% 
+  select(contains("q9"), `Response ID`,
+         -contains("אחר")) %>% 
+  gather(name, votes, -`Response ID`) %>% 
+  mutate(votes = (!is.na(votes))*1) %>%
+  filter(votes > 0) %>% 
+  mutate(name = ifelse(str_detect(name, "חן שטיין"), 
+                       "חן שטיין",
+                       name)) %>% 
+  prop(name) %>% 
+  select(-prop) %>% 
+  mutate(prop = n/total_respondents) %>% 
+  mutate(name = str_replace(name, ":q9_prosecutors", "")) %>% 
+  mutate(name = fct_inorder(name))
+
+ggplot_factor(prosecutor_rank, name, wrap_width = 15) + 
+  theme(axis.text.x = element_text(angle = 90, size = 10)) +
+  labs(caption = paste0("n=", total_respondents)) -> all_prosecutors_chart
+
+# ggsave("figures/all_prosecutors_chart.png", all_prosecutors_chart, width = 30, height = 10, units = "cm")
+
+#top10
+
+ggplot_factor(prosecutor_rank %>% head(10), name, wrap_width = 15) + 
+  theme(axis.text.x = element_text(angle = 0, size = 10)) +
+  labs(caption = paste0("n=", total_respondents)) -> top10_prosecutors_chart
+
+# ggsave("figures/top10_prosecutors_chart.png", top10_prosecutors_chart, width = 30, height = 10, units = "cm")  
+
+```
+
+### Representation quality
+
+```{r leading law offices}
+attorney %>% 
+  select(contains("q10"), `Response ID`,
+         -contains("אחר")) %>% 
+  gather(name, votes, -`Response ID`) %>% 
+  mutate(votes = (!is.na(votes))*1) %>% 
+  group_by(`Response ID`) %>% 
+  summarize(total_votes = sum(votes)) %>% 
+  filter(total_votes > 0) %>% 
+  select(-total_votes) %>% 
+  unique() %>% 
+  NROW() -> total_respondents
+
+defendents_rank <- attorney %>% 
+  select(contains("q10"), `Response ID`,
+         -contains("אחר")) %>% 
+  gather(name, votes, -`Response ID`) %>% 
+  mutate(votes = (!is.na(votes))*1) %>%
+  filter(votes > 0) %>%  
+  prop(name) %>% 
+  select(-prop) %>% 
+  mutate(prop = n/total_respondents) %>% 
+  mutate(name = str_replace(name, ":q10_defendant", "")) %>% 
+  mutate(name = fct_inorder(name))
+
+ggplot_factor(defendents_rank, name, wrap_width = 30) + 
+  theme(axis.text.x = element_text(angle = 90, size = 10)) +
+  labs(caption = paste0("n=", total_respondents)) -> all_defendents_chart
+
+# ggsave("figures/all_defendents_chart.png", all_defendents_chart, width = 30, height = 10, units = "cm")
+
+#top10
+
+ggplot_factor(defendents_rank %>% head(10), name, wrap_width = 15) + 
+  theme(axis.text.x = element_text(angle = 0, size = 10)) +
+  labs(caption = paste0("n=", total_respondents)) -> top10_defendents_chart
+
+# ggsave("figures/top10_defendents_chart.png", top10_defendents_chart, width = 30, height = 10, units = "cm")  
+
+```
+
+## The judges most supportive or against class action lawsuits
+
+```{r judge rank}
+# all respondents
+judge_rank_all <- attorney %>% 
+  select(q11_judge_support, q12_judge_opposed) %>% 
+  gather(type, selection) %>% 
+  filter(!is.na(selection)) %>% 
+  count(type, selection) %>% 
+  group_by(type) %>% 
+  mutate(prop = n/sum(n)) %>% 
+  mutate(representation = "all") %>% 
+  ungroup() %>% 
+  mutate(type = recode_factor(type,
+                              q11_judge_support = "אוהד/ת תובענות",
+                              q12_judge_opposed = "מתנגד/ת לתובענות")) %>% 
+  arrange(type, desc(prop)) %>% 
+  mutate(selection = fct_inorder(selection))
+  
+# split to prosecutors/defendents
+judge_rank_side_split <- attorney %>% 
+  select(q11_judge_support, q12_judge_opposed, q18_representation) %>% 
+  gather(type, selection, -q18_representation) %>% 
+  filter(!is.na(selection)) %>% 
+  filter(q18_representation %in% c("prosecutors", "defendents")) %>% 
+  count(type, selection, q18_representation) %>% 
+  group_by(type, q18_representation) %>% 
+  mutate(prop = n/sum(n)) %>% 
+  rename(representation = q18_representation) %>%
+  ungroup() %>% 
+  mutate(type = recode_factor(type,
+                              q11_judge_support = "אוהד/ת תובענות",
+                              q12_judge_opposed = "מתנגד/ת לתובענות")) %>% 
+  mutate(representation = recode_factor(representation,
+                                        prosecutors = "מייצגים תובעים",
+                                        defendents = "מייצגים נתבעות")) %>% 
+  mutate(selection = factor(selection,
+                       levels = levels(judge_rank_all$selection)))
+
+judge_rank_all %>% group_by(type) %>% summarize(sum(n))
+
+ggplot(judge_rank_all, aes(fill = type, x = selection, y = prop)) +
+  geom_col(color = "black", position = "dodge") + 
+  geom_label(aes(label = paste0(round(prop*100), "%")), show.legend = F, position = position_dodge(width = .9)) + 
+  guides(fill = guide_legend("סיווג השופט/ת")) + 
+  theme(plot.title = element_text(hjust = 1), 
+        panel.grid = element_line(color = "gray"),
+        axis.text.x = element_text(size = 12, angle = 70, hjust = 1)) + 
+  ggtitle("השופט/ת האוהד/ת ביותר והשופט/ת המתנגד/ת ביותר") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) + 
+  ylab("\u202Bשיעור המשיבים %") + 
+  xlab("") + 
+  labs(caption = "n=146-148") -> judge_rank_all_chart
+  
+  
+
+# ggsave("figures/judge_rank_all_chart.png", judge_rank_all_chart, width = 30, height = 10, units = "cm")
+
+ggplot(judge_rank_side_split, aes(fill = type, x = selection, y = prop)) +
+  geom_col(color = "black", position = "dodge") + 
+  geom_label(aes(label = paste0(round(prop*100), "%")), show.legend = F, position = position_dodge(width = .9)) + 
+  guides(fill = guide_legend("סיווג השופט/ת")) + 
+  theme(plot.title = element_text(hjust = 1), 
+        panel.grid = element_line(color = "gray"),
+        axis.text.x = element_text(size = 12, angle = 70, hjust = 1)) + 
+  ggtitle("השופט/ת האוהד/ת ביותר והשופט/ת המתנגד/ת ביותר") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) + 
+  ylab("\u202Bשיעור המשיבים %") + 
+  xlab("") + 
+  labs(caption = "n=146-148") +
+  facet_grid(rows = vars(representation)) -> judge_rank_split_chart
+  
+# ggsave("figures/judge_rank_split_chart.png", judge_rank_split_chart, width = 30, height = 10, units = "cm")
+```
