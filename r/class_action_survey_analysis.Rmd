@@ -3,8 +3,7 @@ title: "Class Action Survey - Document export"
 author: "Adi Sarid / Sarid Research Institute / adi@sarid-ins.co.il"
 date: "1/30/2019"
 output: 
-  html_document: 
-    css: ~/class-action-IL-survey/rmd.css
+  html_document
 ---
 
 ```{r setup, include=FALSE}
@@ -321,10 +320,8 @@ We can also compute the odds ratio by using coefficients.
 ```{r conjoint logistic model coefficients}
 exp(coef(conjoint_glm_model))
 
-model_effect_plot <- jtools::plot_summs(conjoint_glm_model, scale = TRUE, plot.distributions = TRUE, inner_ci_level = 0.95) + 
+model_effect_plot <- jtools::plot_summs(conjoint_glm_model, scale = TRUE, inner_ci_level = 0.95, exp = T) + 
   ggtitle("העדפות בנוגע לאופן קבלת הפיצוי בתביעה ייצוגית") + 
-  scale_x_continuous(breaks = log(c(1, 2.5, 5, 10)),
-                     labels = c(1, 2.5, 5, 10)) + 
   theme(plot.title = element_text(hjust = 1)) + 
   xlab("\u202Bפי כמה עולה הסיכוי לבחירה באפשרות זו?")
 
@@ -517,7 +514,7 @@ judge_rank_all %>% group_by(type) %>% summarize(sum(n))
 
 ggplot(judge_rank_all, aes(fill = type, x = selection, y = prop)) +
   geom_col(color = "black", position = "dodge") + 
-  geom_label(aes(label = paste0(round(prop*100), "%")), show.legend = F, position = position_dodge(width = .9)) + 
+  geom_label(aes(label = paste0(round(prop*100), "%")), show.legend = F, position = position_dodge(width = .9), size = 2.5) + 
   guides(fill = guide_legend("סיווג השופט/ת")) + 
   theme(plot.title = element_text(hjust = 1), 
         panel.grid = element_line(color = "gray"),
@@ -534,7 +531,7 @@ ggplot(judge_rank_all, aes(fill = type, x = selection, y = prop)) +
 
 ggplot(judge_rank_side_split, aes(fill = type, x = selection, y = prop)) +
   geom_col(color = "black", position = "dodge") + 
-  geom_label(aes(label = paste0(round(prop*100), "%")), show.legend = F, position = position_dodge(width = .9)) + 
+  geom_label(aes(label = paste0(round(prop*100), "%")), show.legend = F, position = position_dodge(width = .9), size = 2) + 
   guides(fill = guide_legend("סיווג השופט/ת")) + 
   theme(plot.title = element_text(hjust = 1), 
         panel.grid = element_line(color = "gray"),
@@ -543,7 +540,7 @@ ggplot(judge_rank_side_split, aes(fill = type, x = selection, y = prop)) +
   scale_y_continuous(labels = scales::percent_format(accuracy = 1)) + 
   ylab("\u202Bשיעור המשיבים %") + 
   xlab("") + 
-  labs(caption = "n=146-148") +
+  labs(caption = "n=53-63") +
   facet_grid(rows = vars(representation)) -> judge_rank_split_chart
   
 # ggsave("figures/judge_rank_split_chart.png", judge_rank_split_chart, width = 30, height = 10, units = "cm")
