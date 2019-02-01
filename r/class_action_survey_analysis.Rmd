@@ -376,7 +376,7 @@ public %>%
     xlab("") +
     ggtitle(paste0("\u202B", 
                    str_wrap("כפי שנאמר בשאלה הקודמת, סכום האגרה בבית משפט מחוזי הוא 16,000 שח. האם סכום זה ימנע ממך להגיש תביעה יצוגית?",
-                            width = 45) %>% 
+                            width = 65) %>% 
                      str_replace_all(.,"\n", "\n\u202B"))) + 
     theme(plot.title = element_text(hjust = 1), 
           panel.grid = element_line(color = "gray75"),
