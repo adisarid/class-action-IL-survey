@@ -106,8 +106,10 @@ ggplot_factor <- function(data,
     ylab(paste0("\u202B",ylabel)) + 
     ggtitle(paste0("\u202B", gtitle)) + 
     theme(plot.title = element_text(hjust = 1), 
-          panel.grid = element_line(color = "gray"),
-          axis.text.x = element_text(size = xsize))
+          panel.grid = element_line(color = "gray75"),
+          axis.text.x = element_text(size = xsize),
+          panel.background = element_rect(fill = NA),
+          panel.border = element_rect(fill = NA, color = "gray75"))
   
   if ("n" %in% names(data)){
     output_plot <- output_plot + 
@@ -199,9 +201,11 @@ defend_public_chart <- ggplot(defend_public, aes(x = ranking, y = prop, fill = r
   ylab(paste0("\u202B","שיעור המשיבים %")) + 
   ggtitle(paste0("\u202B", "באיזו מידה תובענות ייצוגיות עוזרות להגן על זכויות הציבור?")) + 
   theme(plot.title = element_text(hjust = 1), 
-        panel.grid = element_line(color = "gray"),
+        panel.grid = element_line(color = "gray75"),
         axis.text.x = element_text(size = 13),
-        strip.text = element_text(size = 13)) + 
+        strip.text = element_text(size = 13),
+        panel.background = element_rect(fill = NA),
+        panel.border = element_rect(fill = NA, color = "gray75")) + 
   facet_wrap(~ pop) +
   scale_fill_brewer(type = "div", palette = "RdYlGn") + 
   labs(caption = "\u202Bגודל מדגם: 181 עורכי דין, 482 משיבים מקרב הציבור הכללי")
@@ -252,9 +256,11 @@ defend_law_side_chart <- ggplot(defend_public_representation_split, aes(x = rank
   ylab(paste0("\u202B","שיעור המשיבים %")) + 
   ggtitle(paste0("\u202B", "באיזו מידה תובענות ייצוגיות עוזרות להגן על זכויות הציבור?")) + 
   theme(plot.title = element_text(hjust = 1), 
-        panel.grid = element_line(color = "gray"),
+        panel.grid = element_line(color = "gray75"),
         axis.text.x = element_text(size = 13),
-        strip.text = element_text(size = 13)) + 
+        strip.text = element_text(size = 13),
+        panel.background = element_rect(fill = NA),
+        panel.border = element_rect(fill = NA, color = "gray75")) + 
   facet_wrap(~ pop) +
   scale_fill_brewer(type = "div", palette = "RdYlGn") + 
   labs(caption = "\u202Bגודל מדגם: 53 מייצגים נתבעות, 63 מייצגים תובעים. היתר סירבו להשיב או מייצגים את שני הצדדים.")
@@ -356,6 +362,18 @@ public %>%
 
 # ggsave("figures/updated_fee_regulations.png", updated_fee_regulations, width = 20, height = 10, units = "cm")
 
+public %>% 
+  prop(q15_fee_prevent_filing) %>% 
+  mutate(q15_fee_prevent_filing = recode_factor(q15_fee_prevent_filing,
+                                                `1` = "כן",
+                                                `0` = "לא",
+                                                `-99` = "לא יודע")) %>% 
+  ggplot_factor(q15_fee_prevent_filing, 
+                gtitle = str_wrap("כפי שנאמר בשאלה הקודמת, סכום האגרה בבית משפט מחוזי הוא 16,000 שח. האם סכום זה ימנע ממך להגיש תביעה יצוגית?", width = 60) %>% 
+                  str_replace_all(., "\n", "\n\u202B")) -> prevent_filing_chart
+
+# ggsave("figures/prevent_filing_chart.png", prevent_filing_chart, width = 20, height = 10, units = "cm")
+
 ```
 
 ## Fields for future lawsuits
@@ -413,7 +431,9 @@ prosecutor_rank <- attorney %>%
   mutate(name = fct_inorder(name))
 
 ggplot_factor(prosecutor_rank, name, wrap_width = 15) + 
-  theme(axis.text.x = element_text(angle = 90, size = 10)) +
+  theme(axis.text.x = element_text(angle = 90, size = 10),
+        panel.background = element_rect(fill = NA),
+        panel.border = element_rect(fill = NA, color = "gray75")) +
   labs(caption = paste0("n=", total_respondents)) -> all_prosecutors_chart
 
 # ggsave("figures/all_prosecutors_chart.png", all_prosecutors_chart, width = 30, height = 10, units = "cm")
@@ -421,7 +441,9 @@ ggplot_factor(prosecutor_rank, name, wrap_width = 15) +
 #top10
 
 ggplot_factor(prosecutor_rank %>% head(10), name, wrap_width = 15) + 
-  theme(axis.text.x = element_text(angle = 0, size = 10)) +
+  theme(axis.text.x = element_text(angle = 0, size = 10),
+        panel.background = element_rect(fill = NA),
+        panel.border = element_rect(fill = NA, color = "gray75")) +
   labs(caption = paste0("n=", total_respondents)) -> top10_prosecutors_chart
 
 # ggsave("figures/top10_prosecutors_chart.png", top10_prosecutors_chart, width = 30, height = 10, units = "cm")  
@@ -456,7 +478,9 @@ defendents_rank <- attorney %>%
   mutate(name = fct_inorder(name))
 
 ggplot_factor(defendents_rank, name, wrap_width = 30) + 
-  theme(axis.text.x = element_text(angle = 90, size = 10)) +
+  theme(axis.text.x = element_text(angle = 90, size = 10),
+        panel.background = element_rect(fill = NA),
+        panel.border = element_rect(fill = NA, color = "gray75")) +
   labs(caption = paste0("n=", total_respondents)) -> all_defendents_chart
 
 # ggsave("figures/all_defendents_chart.png", all_defendents_chart, width = 30, height = 10, units = "cm")
@@ -464,7 +488,9 @@ ggplot_factor(defendents_rank, name, wrap_width = 30) +
 #top10
 
 ggplot_factor(defendents_rank %>% head(10), name, wrap_width = 15) + 
-  theme(axis.text.x = element_text(angle = 0, size = 10)) +
+  theme(axis.text.x = element_text(angle = 0, size = 10),
+        panel.background = element_rect(fill = NA),
+        panel.border = element_rect(fill = NA, color = "gray75")) +
   labs(caption = paste0("n=", total_respondents)) -> top10_defendents_chart
 
 # ggsave("figures/top10_defendents_chart.png", top10_defendents_chart, width = 30, height = 10, units = "cm")  
@@ -485,8 +511,8 @@ judge_rank_all <- attorney %>%
   mutate(representation = "all") %>% 
   ungroup() %>% 
   mutate(type = recode_factor(type,
-                              q11_judge_support = "אוהד/ת תובענות",
-                              q12_judge_opposed = "מתנגד/ת לתובענות")) %>% 
+                              q12_judge_opposed = "מתנגד/ת לתובענות",
+                              q11_judge_support = "אוהד/ת תובענות")) %>% 
   arrange(type, desc(prop)) %>% 
   mutate(selection = fct_inorder(selection))
   
@@ -502,8 +528,8 @@ judge_rank_side_split <- attorney %>%
   rename(representation = q18_representation) %>%
   ungroup() %>% 
   mutate(type = recode_factor(type,
-                              q11_judge_support = "אוהד/ת תובענות",
-                              q12_judge_opposed = "מתנגד/ת לתובענות")) %>% 
+                              q12_judge_opposed = "מתנגד/ת לתובענות",
+                              q11_judge_support = "אוהד/ת תובענות")) %>% 
   mutate(representation = recode_factor(representation,
                                         prosecutors = "מייצגים תובעים",
                                         defendents = "מייצגים נתבעות")) %>% 
@@ -515,10 +541,12 @@ judge_rank_all %>% group_by(type) %>% summarize(sum(n))
 ggplot(judge_rank_all, aes(fill = type, x = selection, y = prop)) +
   geom_col(color = "black", position = "dodge") + 
   geom_label(aes(label = paste0(round(prop*100), "%")), show.legend = F, position = position_dodge(width = .9), size = 2.5) + 
-  guides(fill = guide_legend("סיווג השופט/ת")) + 
-  theme(plot.title = element_text(hjust = 1), 
-        panel.grid = element_line(color = "gray"),
-        axis.text.x = element_text(size = 12, angle = 70, hjust = 1)) + 
+  guides(fill = guide_legend("סיווג השופט/ת", title.position = "top", title.hjust = 1)) + 
+  theme(plot.title = element_text(hjust = 1), legend.position = "bottom",
+        panel.grid = element_line(color = "gray75"),
+        axis.text.x = element_text(size = 12, angle = 70, hjust = 1),
+        panel.background = element_rect(fill = NA),
+        panel.border = element_rect(fill = NA, color = "gray75")) + 
   ggtitle("השופט/ת האוהד/ת ביותר והשופט/ת המתנגד/ת ביותר") +
   scale_y_continuous(labels = scales::percent_format(accuracy = 1)) + 
   ylab("\u202Bשיעור המשיבים %") + 
@@ -527,15 +555,17 @@ ggplot(judge_rank_all, aes(fill = type, x = selection, y = prop)) +
   
   
 
-# ggsave("figures/judge_rank_all_chart.png", judge_rank_all_chart, width = 30, height = 10, units = "cm")
+# ggsave("figures/judge_rank_all_chart.png", judge_rank_all_chart, width = 32, height = 12, units = "cm")
 
 ggplot(judge_rank_side_split, aes(fill = type, x = selection, y = prop)) +
   geom_col(color = "black", position = "dodge") + 
   geom_label(aes(label = paste0(round(prop*100), "%")), show.legend = F, position = position_dodge(width = .9), size = 2) + 
-  guides(fill = guide_legend("סיווג השופט/ת")) + 
-  theme(plot.title = element_text(hjust = 1), 
-        panel.grid = element_line(color = "gray"),
-        axis.text.x = element_text(size = 12, angle = 70, hjust = 1)) + 
+  guides(fill = guide_legend("סיווג השופט/ת", title.position = "top", title.hjust = 1)) + 
+  theme(plot.title = element_text(hjust = 1), legend.position = "bottom",
+        panel.grid = element_line(color = "gray75"),
+        axis.text.x = element_text(size = 12, angle = 70, hjust = 1),
+        panel.background = element_rect(fill = NA),
+        panel.border = element_rect(fill = NA, color = "gray75")) + 
   ggtitle("השופט/ת האוהד/ת ביותר והשופט/ת המתנגד/ת ביותר") +
   scale_y_continuous(labels = scales::percent_format(accuracy = 1)) + 
   ylab("\u202Bשיעור המשיבים %") + 
@@ -543,5 +573,193 @@ ggplot(judge_rank_side_split, aes(fill = type, x = selection, y = prop)) +
   labs(caption = "n=53-63") +
   facet_grid(rows = vars(representation)) -> judge_rank_split_chart
   
-# ggsave("figures/judge_rank_split_chart.png", judge_rank_split_chart, width = 30, height = 10, units = "cm")
+# ggsave("figures/judge_rank_split_chart.png", judge_rank_split_chart, width = 32, height = 12, units = "cm")
+```
+
+## The district court most favorable for class actions
+
+```{r district court}
+attorney %>% 
+  prop(q14_court) %>% 
+  ggplot_factor(q14_court, gtitle = "איזה בית משפט מחוזי לדעתך, הכי אוהד תובענות ייצוגיות?") -> most_pro_court_chart
+
+# ggsave("figures/most_pro_court_chart.png", most_pro_court_chart, width = 30, height = 10, units = "cm")
+
+attorney %>% 
+  group_by(q18_representation) %>% 
+  prop(q14_court) %>% 
+  filter(q18_representation %in% c("prosecutors", "defendents"))
+```
+
+## Most profitable fields to issue a class action
+
+```{r most profitable fields}
+total_sample <- attorney %>% 
+  select(contains("q15_subject_profit"), `Response ID`) %>% 
+  gather(item, selection, -`Response ID`) %>% 
+  filter(!is.na(selection)) %>% 
+  select(`Response ID`) %>% 
+  unique() %>% 
+  NROW()
+
+profitable_fields_chart <- attorney %>% 
+  select(contains("q15_subject_profit")) %>% 
+  gather(item, selection) %>% 
+  filter(!is.na(selection)) %>% 
+  count(item) %>% 
+  mutate(prop = n/total_sample) %>% 
+  mutate(item = str_replace(item, ":q15_subject_profit", "")) %>% 
+  arrange(desc(prop)) %>% 
+  ggplot_factor(item) + 
+  labs(caption = paste0("n=", total_sample, ". total percent > 100% because more than one selection was possible")) +
+  theme(axis.text.x = element_text(angle = 65, hjust = 1))
+
+# ggsave("figures/profitable_fields_chart.png", profitable_fields_chart, width = 30, height = 10, units = "cm")
+
+```
+
+### Most profitable fields to work a class action case - split by type of representation
+
+```{r most profitable fields split}
+total_sample <- attorney %>% 
+  select(contains("q15_subject_profit"), `Response ID`, q18_representation) %>% 
+  gather(item, selection, -q18_representation, -`Response ID`) %>% 
+  filter(!is.na(selection)) %>% 
+  count(`Response ID`, q18_representation) %>%
+  filter(q18_representation %in% c("prosecutors", "defendents")) %>%
+  select(1:2) %>% 
+  unique() %>% 
+  count(q18_representation) %>% 
+  rename(sample_size = n)
+
+profitable_fields_split_chart <- attorney %>% 
+  select(contains("q15_subject_profit"), q18_representation) %>% 
+  gather(item, selection, -q18_representation) %>% 
+  filter(!is.na(selection)) %>% 
+  count(item, q18_representation) %>% 
+  filter(q18_representation %in% c("prosecutors", "defendents")) %>% 
+  left_join(total_sample) %>% 
+  mutate(prop = n/sample_size) %>% 
+  mutate(item = str_replace(item, ":q15_subject_profit", "")) %>% 
+  arrange(q18_representation, desc(prop)) %>% 
+  mutate(item = fct_inorder(str_wrap(item, width = 20))) %>% 
+  mutate(q18_representation = recode_factor(q18_representation,
+                                            prosecutors = "מייצג תובעים",
+                                            defendents = "מייצג נתבעים")) %>% 
+  ggplot(aes(fill = q18_representation, x = item, y = prop)) +
+  geom_col(color = "black", position = "dodge") + 
+  geom_label(aes(label = paste0(round(prop*100), "%")), show.legend = F, position = position_dodge(width = .9), size = 2) + 
+  guides(fill = guide_legend("סיווג התחום", title.position = "top", title.hjust = 1)) + 
+  theme(plot.title = element_text(hjust = 1), legend.position = "bottom",
+        panel.grid = element_line(color = "gray75"),
+        axis.text.x = element_text(size = 12, angle = 70, hjust = 1),
+        panel.background = element_rect(fill = NA),
+        panel.border = element_rect(fill = NA, color = "gray75")) + 
+  ggtitle("תחומי התביעות שבהם שכר הטרחה הכי משתלם - פילוח לפי צד") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) + 
+  ylab("\u202Bשיעור המשיבים %") + 
+  xlab("") + 
+  labs(caption = "n=53-63. total percent > 100% because more than one selection was possible")  
+
+# ggsave("figures/profitable_fields_split_chart.png", profitable_fields_split_chart, width = 30, height = 13, units = "cm")
+```
+
+## Positions about class actions (1-5 likert scale questions)
+
+```{r positions}
+likert_scale_recoded <- attorney %>% 
+  select(ends_with(":q_item_"), q2_new_regulations, q18_representation) %>% 
+  gather(item, ranking, -q18_representation) %>% 
+  mutate(item = str_replace(item, fixed(":q_item_"), "")) %>% 
+  mutate(item = recode(item,
+                       q2_new_regulations = "צמצום האפשרויות להגשת תביעות נגד המדינה ורשויות סמך - באיזו מידה ההתפתחות חיובית",
+                       q3_supreme_court_pro_class = "באיזו מידה בית המשפט העליון אוהד את תחום התובענות הייצוגיות",
+                       q4_legal_fees = "שכר הטרחה משקף את מאמץ עורך הדין בתביעה",
+                       q5_file_dismissal_legal_fees = "בהסתלקויות יש הצדקה לשכ''ט וגמול",
+                       q6_class_amount = "ב-2018 הוגשו כ-1,200 תובענות. באיזו מידה כמות זו ראויה?",
+                       q7_attorney_general_position = "עמדות היועמ''ש בתובענות ייצוגיות חשובות",
+                       q8_defend_public = "תובענות ייצוגיות עוזרות להגן על זכויות הציבור") %>% 
+           str_wrap(width = 40) %>% 
+           str_replace_all("\n", "\n\u202B")) %>% 
+  filter(!is.na(ranking))
+  
+
+likert_scale_recoded_all <- likert_scale_recoded %>% 
+  select(-q18_representation) %>% 
+  group_by(item) %>% 
+  prop(ranking) %>% 
+  mutate(ranking_factor = 
+           recode_factor(ranking,
+                         `1` = "כלל לא",
+                         `2` = "במידה מועטה",
+                         `3` = "במידה בינונית",
+                         `4` = "במידה רבה",
+                         `5` = "במידה רבה מאוד"))
+
+likert_scale_recoded_all_chart <- ggplot(likert_scale_recoded_all, aes(x = item, y = prop, fill = ranking_factor)) +
+  geom_bar(stat = "identity", position = "fill", color = "black") +
+  geom_label(aes(label = paste0(round(prop*100), "%")),position = position_fill(),
+             show.legend = F) + 
+  guides(fill = guide_legend("דירוג")) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) + 
+  xlab(paste0("")) + 
+  ylab(paste0("\u202B","שיעור המשיבים %")) + 
+  ggtitle(paste0("\u202B", "עמדות בנוגע לתובענות ייצוגיות")) + 
+  theme(plot.title = element_text(hjust = 1), 
+        panel.grid = element_line(color = "gray75"),
+        axis.text.y = element_text(size = 12),
+        strip.text = element_text(size = 13),
+        panel.background = element_rect(fill = NA),
+        panel.border = element_rect(fill = NA, color = "gray75")) + 
+  scale_fill_brewer(type = "div", palette = "RdYlGn") + 
+  labs(caption = "n=180-198") + 
+  coord_flip()
+
+# ggsave("figures/likert_scale_recoded_all_chart.png", likert_scale_recoded_all_chart, width = 30, height = 10, units = "cm")
+
+```
+
+Now, to do the same but just split between defendent lawyers and prosecuting lawyers
+
+```{r positions split}
+likert_scale_recoded_all <- likert_scale_recoded %>% 
+  group_by(item, q18_representation) %>% 
+  prop(ranking) %>% 
+  mutate(ranking_factor = 
+           recode_factor(ranking,
+                         `1` = "כלל לא",
+                         `2` = "במידה מועטה",
+                         `3` = "במידה בינונית",
+                         `4` = "במידה רבה",
+                         `5` = "במידה רבה מאוד")) %>% 
+  arrange(desc(ranking)) %>% 
+  mutate(ranking_factor = fct_inorder(ranking_factor)) %>% 
+  filter(q18_representation %in% c("prosecutors", "defendents")) %>%
+  ungroup() %>% 
+  mutate(q18_representation = recode(q18_representation,
+                                     prosecutors = "מייצגים צד תובע",
+                                     defendents = "מייצגים צד נתבע"))
+
+positions_split <- ggplot(likert_scale_recoded_all, aes(x = item, y = prop, fill = ranking_factor)) +
+  geom_bar(stat = "identity", position = "fill", color = "black") +
+  geom_label(aes(label = paste0(round(prop*100), "%")),position = position_fill(),
+             show.legend = F) +
+  guides(fill = guide_legend("דירוג")) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) + 
+  xlab(paste0("")) + 
+  ylab(paste0("\u202B","שיעור המשיבים %")) + 
+  ggtitle(paste0("\u202B", "עמדות בנוגע לתובענות ייצוגיות")) + 
+  theme(plot.title = element_text(hjust = 1), 
+        panel.grid = element_line(color = "gray75"),
+        axis.text.y = element_text(size = 12),
+        strip.text = element_text(size = 13),
+        panel.background = element_rect(fill = NA),
+        panel.border = element_rect(fill = NA, color = "gray75")) + 
+  scale_fill_brewer(type = "div", palette = "RdYlGn") + 
+  labs(caption = "n=53-63") + 
+  facet_wrap(~q18_representation) +
+  coord_flip()
+
+# ggsave("figures/positions_split.png", positions_split, width = 30, height = 10, units = "cm")
+
 ```
