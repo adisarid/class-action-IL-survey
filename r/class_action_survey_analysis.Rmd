@@ -667,6 +667,7 @@ profitable_fields_split_chart <- attorney %>%
 ## Positions about class actions (1-5 likert scale questions)
 
 ```{r positions}
+
 likert_scale_recoded <- attorney %>% 
   select(ends_with(":q_item_"), q2_new_regulations, q18_representation) %>% 
   gather(item, ranking, -q18_representation) %>% 
@@ -682,6 +683,26 @@ likert_scale_recoded <- attorney %>%
            str_wrap(width = 40) %>% 
            str_replace_all("\n", "\n\u202B")) %>% 
   filter(!is.na(ranking))
+
+sort_order <- attorney %>% 
+  select(ends_with(":q_item_"), q2_new_regulations) %>% 
+  gather(item, ranking) %>% 
+  mutate(item = str_replace(item, fixed(":q_item_"), "")) %>% 
+  mutate(item = recode(item,
+                       q2_new_regulations = "צמצום האפשרויות להגשת תביעות נגד המדינה ורשויות סמך - באיזו מידה ההתפתחות חיובית",
+                       q3_supreme_court_pro_class = "באיזו מידה בית המשפט העליון אוהד את תחום התובענות הייצוגיות",
+                       q4_legal_fees = "שכר הטרחה משקף את מאמץ עורך הדין בתביעה",
+                       q5_file_dismissal_legal_fees = "בהסתלקויות יש הצדקה לשכ''ט וגמול",
+                       q6_class_amount = "ב-2018 הוגשו כ-1,200 תובענות. באיזו מידה כמות זו ראויה?",
+                       q7_attorney_general_position = "עמדות היועמ''ש בתובענות ייצוגיות חשובות",
+                       q8_defend_public = "תובענות ייצוגיות עוזרות להגן על זכויות הציבור") %>% 
+           str_wrap(width = 40) %>% 
+           str_replace_all("\n", "\n\u202B")) %>% 
+  filter(!is.na(ranking)) %>% 
+  group_by(item) %>% 
+  summarize(mean = mean(ranking)) %>% 
+  arrange(mean)
+  
   
 
 likert_scale_recoded_all <- likert_scale_recoded %>% 
@@ -694,7 +715,9 @@ likert_scale_recoded_all <- likert_scale_recoded %>%
                          `2` = "במידה מועטה",
                          `3` = "במידה בינונית",
                          `4` = "במידה רבה",
-                         `5` = "במידה רבה מאוד"))
+                         `5` = "במידה רבה מאוד")) %>% 
+  ungroup() %>% 
+  mutate(item = factor(item, levels = sort_order$item))
 
 likert_scale_recoded_all_chart <- ggplot(likert_scale_recoded_all, aes(x = item, y = prop, fill = ranking_factor)) +
   geom_bar(stat = "identity", position = "fill", color = "black") +
@@ -722,7 +745,7 @@ likert_scale_recoded_all_chart <- ggplot(likert_scale_recoded_all, aes(x = item,
 Now, to do the same but just split between defendent lawyers and prosecuting lawyers
 
 ```{r positions split}
-likert_scale_recoded_all <- likert_scale_recoded %>% 
+likert_scale_recoded_all_split <- likert_scale_recoded %>% 
   group_by(item, q18_representation) %>% 
   prop(ranking) %>% 
   mutate(ranking_factor = 
@@ -732,15 +755,16 @@ likert_scale_recoded_all <- likert_scale_recoded %>%
                          `3` = "במידה בינונית",
                          `4` = "במידה רבה",
                          `5` = "במידה רבה מאוד")) %>% 
-  arrange(desc(ranking)) %>% 
-  mutate(ranking_factor = fct_inorder(ranking_factor)) %>% 
   filter(q18_representation %in% c("prosecutors", "defendents")) %>%
   ungroup() %>% 
   mutate(q18_representation = recode(q18_representation,
                                      prosecutors = "מייצגים צד תובע",
-                                     defendents = "מייצגים צד נתבע"))
+                                     defendents = "מייצגים צד נתבע")) %>% 
+  
+  ungroup() %>% 
+  mutate(item = factor(item, levels = sort_order$item))
 
-positions_split <- ggplot(likert_scale_recoded_all, aes(x = item, y = prop, fill = ranking_factor)) +
+positions_split <- ggplot(likert_scale_recoded_all_split, aes(x = item, y = prop, fill = factor(ranking, levels = 1:5))) +
   geom_bar(stat = "identity", position = "fill", color = "black") +
   geom_label(aes(label = paste0(round(prop*100), "%")),position = position_fill(),
              show.legend = F) +
@@ -761,5 +785,36 @@ positions_split <- ggplot(likert_scale_recoded_all, aes(x = item, y = prop, fill
   coord_flip()
 
 # ggsave("figures/positions_split.png", positions_split, width = 30, height = 10, units = "cm")
+
+```
+
+And now the same only instead of comparing distributions, let's compare averages - simpler to visualize.
+
+```{r positions split averages}
+likert_scale_averages <- likert_scale_recoded_all_split %>% 
+  group_by(q18_representation, item) %>% 
+  summarize(avg = sum(prop*ranking)) %>% 
+  ungroup() %>% 
+  mutate(q18_representation = recode(q18_representation,
+                                     prosecutors = "מייצגים צד תובע",
+                                     defendents = "מייצגים צד נתבע"))
+likert_scale_averages_chart <- ggplot(likert_scale_averages,
+       aes(x = item, y = avg, fill = q18_representation)) +
+  geom_col(position = "dodge", color = "black") +
+  xlab(paste0("")) + 
+  ylab(paste0("\u202B","ממוצע 1-5")) + 
+  geom_label(aes(label = round(avg,2)), position = position_dodge(width = 1), size = 3.5, show.legend = F) +
+  ggtitle(paste0("\u202B", "עמדות בנוגע לתובענות ייצוגיות - השוואה בין תובעים למייצגי נתבעים")) + 
+  guides(fill = guide_legend("", title.position = "top", title.hjust = 1)) +
+  theme(plot.title = element_text(hjust = 1), legend.position = "bottom",
+        panel.grid = element_line(color = "gray75"),
+        axis.text.y = element_text(size = 12),
+        strip.text = element_text(size = 13),
+        panel.background = element_rect(fill = NA),
+        panel.border = element_rect(fill = NA, color = "gray75")) + 
+  labs(caption = "n=53-63") + 
+  coord_flip(ylim = c(1,5))
+   
+# ggsave("figures/likert_scale_averages_chart.png", likert_scale_averages_chart, width = 30, height = 16, units = "cm") 
 
 ```
