@@ -2,6 +2,9 @@
 # 
 
 library(shiny)
+library(DT)
+
+load("conjoint_glm_model.RData")
 
 # Define UI for application that draws a histogram
 ui <- navbarPage("Class action conjoint analysis",
@@ -15,28 +18,122 @@ ui <- navbarPage("Class action conjoint analysis",
                                                        max = 100,
                                                        value = 25),
                                            selectInput("pkg1_return_type", label = "Return type",
-                                                       choices = c("Credit card",
-                                                                   "Cheque",
-                                                                   "Coupon",
-                                                                   "Refund",
-                                                                   "Additional product"),
-                                                       selected = "Credit card"),
-                                           checkboxInput("pkh1_by_push", 'Provided by "push"')
+                                                       choices = c("Credit card" = "credit_cart",
+                                                                   "Cheque" = "bank_cheque",
+                                                                   "Coupon" = "coupon",
+                                                                   "Refund at next purchase" = "refund_next_purchase",
+                                                                   "Additional product" = "another_product"),
+                                                       selected = "Coupon"),
+                                           checkboxInput("pkh1_by_push", 'Provided by "push" (the consumer does not have to actively ask for it)',
+                                                         value = TRUE)
                                            ), width = 4),
-                          column(wellPanel(tags$h3("Alternative package")
-                                           
-                                           ), width = 4)
-                        )
+                          column(wellPanel(tags$h3("Alternative package"),
+                                           sliderInput(inputId = "pkg2_price",
+                                                       label = "Price",
+                                                       step = 25,
+                                                       min = 25,
+                                                       max = 100,
+                                                       value = 75),
+                                           selectInput("pkg2_return_type", label = "Return type",
+                                                       choices = c("Credit card" = "credit_cart",
+                                                                   "Cheque" = "bank_cheque",
+                                                                   "Coupon" = "coupon",
+                                                                   "Refund at next purchase" = "refund_next_purchase",
+                                                                   "Additional product" = "another_product"),
+                                                       selected = "Refund"),
+                                           checkboxInput("pkh2_by_push", 'Provided by "push" (the consumer does not have to actively ask for it)',
+                                                         value = FALSE)
+                                           ), width = 4),
+                          column(
+                            wellPanel(
+                              tags$h3("Logistic regression results"),
+                              DTOutput("package_comparison_result_tbl")
+                            )
+                            , width = 4)
+                        ),
+                        fluidRow(wellPanel(tags$h4(textOutput("package_compare_textoutput")))),
+                        fluidRow(plotOutput("package_comparison_chart"))
                         ),
                navbarMenu("How this works?",
-                          tabPanel("Conjoint analysis", icon = icon("chalkboard-teacher")),
-                          tabPanel("GitHub repo", icon = icon("github"))),
-               tabPanel("About", icon = icon("info"))
+                          tabPanel("Conjoint analysis", icon = icon("chalkboard-teacher"),
+                                   wellPanel(
+                                     HTML(readLines("conjoint_explaied.html"))
+                                   )),
+                          tabPanel("GitHub repo", icon = icon("github"),
+                                   wellPanel(
+                                     HTML(
+                                       '<p>The repository is located at:&nbsp;
+                                       <a href="https://github.com/adisarid/class-action-IL-survey/" target="_blank" rel="noopener">https://github.com/adisarid/class-action-IL-survey/</a></p>
+                                       <p>The repo includes documentation, the data, and the code to generate this app.</p>'
+                                     )
+                                   ))),
+               tabPanel("About", icon = icon("info"),
+                        wellPanel(
+                          HTML('
+                          <p>This app was generated by 
+                          <a href="https://adisarid.github.io" target="_blank" rel="noopener">Adi Sarid</a> from 
+                          <a href="http://www.sarid-ins.com" target="_blank" rel="noopener">Sarid Research Services LTD</a>.</p>
+                          <p>The App, the data it is based on (and some more goodies) are licensed under CC-BY-SA 4.0, check out the 
+                          <a href="https://github.com/adisarid/class-action-IL-survey/" target="_blank" rel="noopener">github repo</a>.</p>
+                          ')
+                        ))
     )
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
-    
+  # build the predictions based on the two packages
+  packages_compare <- reactive({
+    # generate the tibble for predictions:
+    input_data <- tibble(
+      compensation_push_pull = ifelse(c(input$pkh1_by_push, input$pkh2_by_push), "push", "pull"),
+      compensation_amount_ILS = as.character(c(input$pkg1_price, input$pkg2_price)),
+      compensation_type = c(input$pkg1_return_type, input$pkg2_return_type)
+    )
+    predictions <- predict(conjoint_glm_model, newdata = input_data, se.fit = T, type = "response") %>% 
+      as_tibble() %>% 
+      select(1:3) %>% 
+      rownames_to_column() %>% 
+      rename_at(vars(1), ~"package") %>% 
+      select(1:3)
+    return(predictions)
+  })
+  
+  
+  output$package_comparison_result_tbl <- renderDT({
+    packages_compare() %>% 
+      mutate_at(vars(fit, se.fit), ~paste0(round(.*100, 2), "%"))
+  }, 
+  rownames = FALSE,
+  options = list(paging = FALSE, ordering = FALSE, info = FALSE, sDom  = ''))
+  
+  output$package_compare_textoutput <- renderText({
+    predict_res <- packages_compare()
+    pck_ratio <- predict_res$fit[1]/predict_res$fit[2]
+    if (pck_ratio > 1) {
+      res_str <- paste0("The Reference package is ", round(pck_ratio, 2), " times more likely to get chosen than the Alternative package")
+    } else if (pck_ratio < 1) {
+      res_str <- paste0("The Alternative package is ", round(1/pck_ratio, 2), " times more likely to get chosen than the Reference package")
+    } else {
+      res_str <- "The two packages are the same!"
+    }
+    return(paste0(res_str))
+  })
+  
+  output$package_comparison_chart <- renderPlot({
+    plot_data <- packages_compare() %>% 
+      mutate(package = recode_factor(package,
+                              `1` = "Reference package",
+                              `2` = "Alternative package"))
+    plot_res <- ggplot(plot_data, aes(x = package, y = fit, ymin = fit - se.fit, ymax = fit + se.fit)) +
+      geom_errorbar() + 
+      geom_point() + 
+      xlab("Package") + 
+      ylab("Logistic regression prediction [%]") + 
+      scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+      ggtitle("Package comparison with SE interval") + 
+      theme(axis.text = element_text(size = 12))
+    return(plot_res)
+  })
 }
 
 # Run the application 
