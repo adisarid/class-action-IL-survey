@@ -3,6 +3,7 @@
 
 library(shiny)
 library(DT)
+library(tidyverse)
 
 load("conjoint_glm_model.RData")
 
